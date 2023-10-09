@@ -35,7 +35,7 @@ function Gameboard({navigation,route}){
             </Col>
         )
     }
-
+console.log("hoi")
     const pointsRow=[]
     for (let spot=0;spot < MAX_SPOT;spot++){
         pointsRow.push(
