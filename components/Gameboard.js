@@ -6,8 +6,11 @@ import Footer from "./Footer";
 import { NBR_OF_DICES, NBR_OF_THROWS, MIN_SPOT, MAX_SPOT, BONUS_POINTS, BONUS_POINTS_LIMIT } from "../constants/Game";
 import { Container, Row, Col } from 'react-native-flex-grid';
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons"
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 
 let board = []
+const SCOREBOARD_KEY = "@score_key"
 
 function Gameboard({ navigation, route }) {
     const [playerName, setPlayerName] = useState("")
@@ -18,14 +21,19 @@ function Gameboard({ navigation, route }) {
     const [diceSpots, setDiceSpots] = useState(new Array(NBR_OF_DICES).fill(0))
     const [selectedDicePoints, setSelectedDicePoints] = useState(new Array(MAX_SPOT).fill(false))
     const [dicePointsTotal, setDicePointsTotal] = useState(new Array(MAX_SPOT).fill(0))
-
+    const [scores, setScores] = useState([])
 
     useEffect(() => {
         if (playerName === "" && route.params?.player) {
             setPlayerName(route.params.player)
         }
     }, [])
-
+     useEffect(()=>{
+        const unsubscribe = navigation.addListener("focus",()=>{
+            getScoreboardData()
+        })
+        return unsubscribe
+     },[navigation])
 
 
     const dicesRow = []
@@ -58,8 +66,8 @@ function Gameboard({ navigation, route }) {
         pointsToSelectRow.push(
             <Col key={`buttonsRow${diceButton}`}>
                 <Pressable
-                    
-                onPress={()=>selectDicePoints(diceButton)}
+
+                    onPress={() => selectDicePoints(diceButton)}
                 >
 
                     <MaterialCommunityIcons
@@ -75,28 +83,58 @@ function Gameboard({ navigation, route }) {
     }
 
     const selectDicePoints = (i) => {
-        if(nbrOfThrowsLeft === 0 ){
+        if (nbrOfThrowsLeft === 0) {
 
-        
-        let selectedPoints = [...selectedDicePoints]
-        let points = [...dicePointsTotal]
-        if(!selectedPoints[i]){
-            selectedPoints[i] = true
-            let nbrOfDices = diceSpots.reduce((total, x) => (x === (i + 1) ? total + 1 : total), 0)
-            points[i] = nbrOfDices * (i + 1)
-        }
-        else{
-            setStatus(`You already selected points for ${i+1}`)
+
+            let selectedPoints = [...selectedDicePoints]
+            let points = [...dicePointsTotal]
+            if (!selectedPoints[i]) {
+                selectedPoints[i] = true
+                let nbrOfDices = diceSpots.reduce((total, x) => (x === (i + 1) ? total + 1 : total), 0)
+                points[i] = nbrOfDices * (i + 1)
+            }
+            else {
+                setStatus(`You already selected points for ${i + 1}`)
+                return points[i]
+            }
+
+            setDicePointsTotal(points)
+            setSelectedDicePoints(selectedPoints)
             return points[i]
         }
-        
-        setDicePointsTotal(points)
-        setSelectedDicePoints(selectedPoints)
-        return points[i]
+        else {
+            setStatus(`Throw ${NBR_OF_THROWS} times before setting points`)
+        }
     }
-    else{
-        setStatus(`Throw ${NBR_OF_THROWS} times before setting points`)
+
+    const savePlayerPoints = async () => {
+        const newKey = scores.length + 1
+        const playerPoints = {
+            key: newKey,
+            name: playerName,
+            date: "date",
+            time: "time",
+            points: 0
+        }
+        try {
+            const newScore = [...scores, playerPoints]
+            const jsonValue = JSON.stringify(newScore)
+            await AsyncStorage.setItem(SCOREBOARD_KEY, jsonValue)
+        } catch (error) {
+            console.log(error)
+        }
     }
+
+    const getScoreboardData = async()=>{
+        try{
+            const jsonValue = await AsyncStorage.getItem(SCOREBOARD_KEY)
+            if(jsonValue !==null){
+                let tmpScores = JSON.parse(jsonValue)
+                setScores(tmpScores)
+            }
+        }catch(e){
+            console.log(e)
+        }
     }
 
     const throwDices = () => {
@@ -165,6 +203,9 @@ function Gameboard({ navigation, route }) {
             <Container fluid>
                 <Row>{pointsToSelectRow}</Row>
             </Container>
+            <Pressable onPress={()=>savePlayerPoints()}>
+                <Text>SAVE POINTS</Text>
+            </Pressable>
             <Text>Player: {playerName}</Text>
             <Footer />
         </View>
